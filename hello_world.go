@@ -1,5 +1,5 @@
-// Package p contains an HTTP Cloud Function.
-package p
+// Package gdgcloudtorino provides a set of Cloud Functions samples.
+package gdgcloudtorino
 
 import (
 	"context"
@@ -13,44 +13,45 @@ import (
 	"firebase.google.com/go/auth"
 )
 
-// Dto oggetto ricevuto
-type Dto struct {
-	Message string `json:"message"` // equivale a json field
-}
-
-var firebaseApp *firebase.App
-var firebaseAuth *auth.Client
-
-// init la funzione viene eseguita prima che arrivi una request, serve ad inizalizzare il context
-func init() {
-	// Initialize default app
+func initializeAppDefault() *firebase.App {
+	// [START initialize_app_default_golang]
 	app, err := firebase.NewApp(context.Background(), nil)
 	if err != nil {
 		log.Fatalf("error initializing app: %v\n", err)
 	}
 
-	// Access auth service from the default app
-	client, err := app.Auth(context.Background())
+	// [END initialize_app_default_golang]
+
+	return app, client
+}
+
+var firebaseApp *firebase.App
+var firebaseAuth *auth.Client
+
+// la funzione init servira ad inizalizzare le componenti fondamentali della function in comune a tutte le richieste
+func init() {
+	firebaseApp = initializeAppDefault()
+	client, err := firebaseApp.Auth(ctx)
 	if err != nil {
 		log.Fatalf("error getting Auth client: %v\n", err)
 	}
-	firebaseApp = app
 	firebaseAuth = client
 }
 
-// HelloWorld prints the JSON encoded "message" field in the body
-// of the request or "Hello, World!" if there isn't one.
-func HelloWorld(w http.ResponseWriter, r *http.Request) {
-
-	// var => variabile
-	var d Dto
+// HelloHTTP is an HTTP Cloud Function with a request parameter.
+func HelloHTTP(w http.ResponseWriter, r *http.Request) {
+	var d struct {
+		Name string `json:"name"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
-		fmt.Fprint(w, "Hello World!")
+		fmt.Fprint(w, "Hello, World!")
 		return
 	}
-	if d.Message == "" {
-		fmt.Fprint(w, "Hello World!")
+	if d.Name == "" {
+		fmt.Fprint(w, "Hello, World!")
 		return
 	}
-	fmt.Fprint(w, html.EscapeString(d.Message))
+	fmt.Fprintf(w, "Hello, %s!", html.EscapeString(d.Name))
 }
+
+// [END functions_helloworld_http]
