@@ -2,47 +2,39 @@
 package gdgcloudtorino
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"log"
 	"net/http"
-
-	firebase "firebase.google.com/go"
-	"firebase.google.com/go/auth"
+	"strings"
 )
-
-func initializeAppDefault() *firebase.App {
-	// [START initialize_app_default_golang]
-	app, err := firebase.NewApp(context.Background(), nil)
-	if err != nil {
-		log.Fatalf("error initializing app: %v\n", err)
-	}
-
-	// [END initialize_app_default_golang]
-
-	return app, client
-}
-
-var firebaseApp *firebase.App
-var firebaseAuth *auth.Client
-
-// la funzione init servira ad inizalizzare le componenti fondamentali della function in comune a tutte le richieste
-func init() {
-	firebaseApp = initializeAppDefault()
-	client, err := firebaseApp.Auth(ctx)
-	if err != nil {
-		log.Fatalf("error getting Auth client: %v\n", err)
-	}
-	firebaseAuth = client
-}
 
 // HelloHTTP is an HTTP Cloud Function with a request parameter.
 func HelloHTTP(w http.ResponseWriter, r *http.Request) {
 	var d struct {
 		Name string `json:"name"`
 	}
+	authorization := r.Header.Get("Authorization")
+	if authorization == "" {
+		fmt.Fprint(w, "Missing authorization")
+		w.WriteHeader(400)
+		return
+	}
+
+	idToken := strings.Replace(authorization, "Bearer ", "", -1)
+	log.Printf("Authorization Bearer %s\n", idToken)
+	token, err := firebaseAuth.VerifyIDToken(r.Context(), idToken)
+	if err != nil {
+		log.Println("Error authorization", err)
+		w.WriteHeader(401)
+		errorMsg := err.Error()
+		fmt.Fprintf(w, "Invalid authorization: %s", errorMsg)
+		return
+	}
+
+	log.Printf("Verified ID token: %v\n", token)
+
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
 		fmt.Fprint(w, "Hello, World!")
 		return
@@ -51,7 +43,13 @@ func HelloHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hello, World!")
 		return
 	}
-	fmt.Fprintf(w, "Hello, %s!", html.EscapeString(d.Name))
+	/*w.Header().Set("Content-Type", "application/json")
+	var response struct {
+		Message string `json:"message"`
+		UID     string `json:"uid"`
+		Email   string `json:"email"`
+	}*/
+	fmt.Fprintf(w, "Hello, %s!, %s", html.EscapeString(d.Name), token.Firebase.Identities["email"])
 }
 
 // [END functions_helloworld_http]
